@@ -2,8 +2,6 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { validate } from './config/env.validation.js';
-import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
 import { Image } from './images/image.entity.js';
 import { ImageService } from './images/image.service.js';
 import { ImageController } from './images/image.controller.js';
@@ -34,7 +32,7 @@ import { MinioModule } from './minio/minio.module.js';
     TypeOrmModule.forFeature([Image]),
     MinioModule,
   ],
-  controllers: [AppController, ImageController],
-  providers: [AppService, ImageService],
+  controllers: [ImageController],
+  providers: [ImageService],
 })
 export class AppModule {}

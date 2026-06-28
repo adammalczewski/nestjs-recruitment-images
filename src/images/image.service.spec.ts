@@ -160,7 +160,7 @@ describe('ImageService', () => {
       await service.create(mockFile, createDto);
       
       expect(sharp).toHaveBeenCalled();
-      expect(resizeMock).toHaveBeenCalledWith(50, 50, { fit: 'inside' });
+      expect(resizeMock).toHaveBeenCalledWith(50, 50, { fit: 'fill' });
       expect(mockMinioService.uploadFile).toHaveBeenCalled();
     });
   });

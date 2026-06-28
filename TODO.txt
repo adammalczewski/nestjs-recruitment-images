@@ -1,4 +1,0 @@
- - Delete the / endpoint
- - Delete unused packages
- - Add Bad Request responses in swagger
- - Add env sample and change readme accordingly
