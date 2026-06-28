@@ -6,6 +6,7 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { Image } from './images/image.entity.js';
 import { ImageService } from './images/image.service.js';
+import { ImageController } from './images/image.controller.js';
 
 @Module({
   imports: [
@@ -31,7 +32,7 @@ import { ImageService } from './images/image.service.js';
     }),
     TypeOrmModule.forFeature([Image]),
   ],
-  controllers: [AppController],
+  controllers: [AppController, ImageController],
   providers: [AppService, ImageService],
 })
 export class AppModule {}
