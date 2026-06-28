@@ -7,6 +7,7 @@ import { AppService } from './app.service.js';
 import { Image } from './images/image.entity.js';
 import { ImageService } from './images/image.service.js';
 import { ImageController } from './images/image.controller.js';
+import { MinioModule } from './minio/minio.module.js';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { ImageController } from './images/image.controller.js';
       }),
     }),
     TypeOrmModule.forFeature([Image]),
+    MinioModule,
   ],
   controllers: [AppController, ImageController],
   providers: [AppService, ImageService],

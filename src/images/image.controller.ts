@@ -6,8 +6,7 @@ import {
   Query,
   UseInterceptors,
   UploadedFile,
-  Body,
-  Res,
+  Body
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiConsumes, ApiBody, ApiResponse, ApiParam } from '@nestjs/swagger';
@@ -17,9 +16,6 @@ import { GetImagesFilterDto } from './dto/in/get-images-filter.dto.js';
 import { ImageOutDto } from './dto/out/image-out.dto.js';
 import { ImagesOutDto } from './dto/out/images-out.dto.js';
 import { IdDto } from './dto/in/id.dto.js';
-import { Response } from 'express';
-import * as path from 'path';
-import { ConfigService } from '@nestjs/config';
 
 @ApiTags('images')
 @Controller('images')

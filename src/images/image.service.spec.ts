@@ -3,17 +3,18 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { ImageService } from './image.service.js';
 import { Image } from './image.entity.js';
 import { ConfigService } from '@nestjs/config';
-import { Repository, Like } from 'typeorm';
+import { Like } from 'typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import sharp from 'sharp';
+import { MinioService } from '../minio/minio.service.js';
 
 const resizeMock = vi.fn().mockReturnThis();
 const toBufferMock = vi.fn().mockResolvedValue(Buffer.from('resized'));
 const metadataMock = vi.fn().mockResolvedValue({ width: 100, height: 100 });
 
 vi.mock('sharp', () => {
-  const sharpMock = vi.fn((buffer) => ({
+  const sharpMock = vi.fn(() => ({
     metadata: metadataMock,
     resize: resizeMock,
     toBuffer: toBufferMock,
@@ -23,11 +24,9 @@ vi.mock('sharp', () => {
 
 describe('ImageService', () => {
   let service: ImageService;
-  let repository: Repository<Image>;
-  let configService: ConfigService;
 
   const mockImageRepository = {
-    findAndCount: vi.fn(),
+    find: vi.fn(),
     findOne: vi.fn(),
     create: vi.fn(),
     save: vi.fn(),
@@ -35,6 +34,10 @@ describe('ImageService', () => {
 
   const mockConfigService = {
     get: vi.fn(),
+  };
+
+  const mockMinioService = {
+    uploadFile: vi.fn(),
   };
 
   beforeEach(async () => {
@@ -49,12 +52,14 @@ describe('ImageService', () => {
           provide: ConfigService,
           useValue: mockConfigService,
         },
+        {
+          provide: MinioService,
+          useValue: mockMinioService,
+        },
       ],
     }).compile();
 
     service = module.get<ImageService>(ImageService);
-    repository = module.get<Repository<Image>>(getRepositoryToken(Image));
-    configService = module.get<ConfigService>(ConfigService);
   });
 
   it('should be defined', () => {
@@ -64,29 +69,27 @@ describe('ImageService', () => {
   describe('findAll', () => {
     it('should return paginated images', async () => {
       const images = [{ id: 1, title: 'test', url: 'url', width: 100, height: 100 }];
-      const total = 1;
-      mockImageRepository.findAndCount.mockResolvedValue([images, total]);
+      mockImageRepository.find.mockResolvedValue(images);
 
       const result = await service.findAll({ page: 1, limit: 10 });
 
       expect(result).toEqual({
         data: images,
-        total,
         page: 1,
         limit: 10,
       });
-      expect(mockImageRepository.findAndCount).toHaveBeenCalledWith({
+      expect(mockImageRepository.find).toHaveBeenCalledWith({
         take: 10,
         skip: 0,
       });
     });
 
     it('should apply title filter', async () => {
-      mockImageRepository.findAndCount.mockResolvedValue([[], 0]);
+      mockImageRepository.find.mockResolvedValue([]);
 
       await service.findAll({ title: 'search', page: 1, limit: 10 });
 
-      expect(mockImageRepository.findAndCount).toHaveBeenCalledWith({
+      expect(mockImageRepository.find).toHaveBeenCalledWith({
         take: 10,
         skip: 0,
         where: {
@@ -123,18 +126,21 @@ describe('ImageService', () => {
 
     it('should create and save an image', async () => {
       const createDto = { title: 'New Image' };
-      const savedImage = { id: 1, ...createDto, url: 'http://localhost:3000/images/file/', width: 100, height: 100 };
+      const imageUrl = 'http://minio/bucket/test.jpg';
+      const savedImage = { id: 1, ...createDto, url: imageUrl, width: 100, height: 100 };
       
       mockConfigService.get.mockReturnValue(3000);
+      mockMinioService.uploadFile.mockResolvedValue(imageUrl);
       mockImageRepository.create.mockReturnValue(savedImage);
       mockImageRepository.save.mockResolvedValue(savedImage);
 
       const result = await service.create(mockFile, createDto);
 
       expect(result).toEqual(savedImage);
+      expect(mockMinioService.uploadFile).toHaveBeenCalled();
       expect(mockImageRepository.create).toHaveBeenCalledWith({
         title: createDto.title,
-        url: 'http://localhost:3000/images/file/',
+        url: imageUrl,
         width: 100,
         height: 100,
       });
@@ -143,12 +149,11 @@ describe('ImageService', () => {
 
     it('should handle resizing', async () => {
       const createDto = { title: 'Resized Image', width: 50, height: 50 };
-      const savedImage = { id: 1, title: 'Resized Image', url: 'http://localhost:3000/images/file/', width: 50, height: 50 };
-      
-      // We need to mock metadata for the second sharp call (resizedMetadata)
-      // Our mock currently returns 100,100. Let's adjust it or just check if resize was called.
+      const imageUrl = 'http://minio/bucket/resized.jpg';
+      const savedImage = { id: 1, title: 'Resized Image', url: imageUrl, width: 50, height: 50 };
       
       mockConfigService.get.mockReturnValue(3000);
+      mockMinioService.uploadFile.mockResolvedValue(imageUrl);
       mockImageRepository.create.mockReturnValue(savedImage);
       mockImageRepository.save.mockResolvedValue(savedImage);
 
@@ -156,6 +161,7 @@ describe('ImageService', () => {
       
       expect(sharp).toHaveBeenCalled();
       expect(resizeMock).toHaveBeenCalledWith(50, 50, { fit: 'inside' });
+      expect(mockMinioService.uploadFile).toHaveBeenCalled();
     });
   });
 });

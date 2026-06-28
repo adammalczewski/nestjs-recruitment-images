@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module.js';
 import { describe, it, beforeEach, afterAll, expect, vi } from 'vitest';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Image } from '../src/images/image.entity.js';
+import { MinioService } from '../src/minio/minio.service.js';
 
 const resizeMock = vi.fn().mockReturnThis();
 const toBufferMock = vi.fn().mockResolvedValue(Buffer.from('resized'));
@@ -32,8 +33,12 @@ describe('ImageController (e2e)', () => {
     findOne: vi.fn().mockImplementation(({ where: { id } }) => 
       Promise.resolve(mockImages.find(img => img.id === id))
     ),
-    create: vi.fn().mockImplementation((dto) => ({ id: 3, ...dto, url: 'http://localhost:3000/images/file/' })),
+    create: vi.fn().mockImplementation((dto) => ({ id: 3, ...dto, url: 'http://minio/bucket/3.jpg' })),
     save: vi.fn().mockImplementation((image) => Promise.resolve({ ...image, id: 3, width: 100, height: 100 })),
+  };
+
+  const mockMinioService = {
+    uploadFile: vi.fn().mockResolvedValue('http://minio/bucket/3.jpg'),
   };
 
   beforeEach(async () => {
@@ -42,6 +47,8 @@ describe('ImageController (e2e)', () => {
     })
       .overrideProvider(getRepositoryToken(Image))
       .useValue(mockImageRepository)
+      .overrideProvider(MinioService)
+      .useValue(mockMinioService)
       .compile();
 
     app = moduleFixture.createNestApplication();

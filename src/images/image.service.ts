@@ -6,18 +6,17 @@ import { CreateImageDto } from './dto/in/create-image.dto.js';
 import { GetImagesFilterDto } from './dto/in/get-images-filter.dto.js';
 import { ImageOutDto } from './dto/out/image-out.dto.js';
 import { ImagesOutDto } from './dto/out/images-out.dto.js';
-import { ConfigService } from '@nestjs/config';
 import sharp from 'sharp';
 import * as path from 'path';
-import * as fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
+import { MinioService } from '../minio/minio.service.js';
 
 @Injectable()
 export class ImageService {
   constructor(
     @InjectRepository(Image)
     private readonly imageRepository: Repository<Image>,
-    private readonly configService: ConfigService,
+    private readonly minioService: MinioService,
   ) {}
 
   async findAll(filterDto: GetImagesFilterDto): Promise<ImagesOutDto> {
@@ -54,26 +53,28 @@ export class ImageService {
 
   async create(file: Express.Multer.File, createDto: CreateImageDto): Promise<ImageOutDto> {
 
-    let imageProcessor = sharp(file.buffer);
+    const imageProcessor = sharp(file.buffer);
     const metadata = await imageProcessor.metadata();
 
     let width = metadata.width as number;
     let height = metadata.height as number;
+    let finalBuffer = file.buffer;
 
     if (createDto.width || createDto.height) {
       const targetWidth = createDto.width;
       const targetHeight = createDto.height;
       
-      const resizedBuffer = await imageProcessor
-        .resize(targetWidth, targetHeight, { fit: 'inside' })
+      finalBuffer = await imageProcessor
+        .resize(targetWidth, targetHeight, { fit: 'fill' })
         .toBuffer();
       
-      const resizedMetadata = await sharp(resizedBuffer).metadata();
+      const resizedMetadata = await sharp(finalBuffer).metadata();
       width = resizedMetadata.width as number;
       height = resizedMetadata.height as number;
     }
 
-    const url = `http://localhost:3000/images/file/`;
+    const filename = `${uuidv4()}${path.extname(file.originalname)}`;
+    const url = await this.minioService.uploadFile(filename, finalBuffer, file.mimetype);
 
     const newImage = this.imageRepository.create({
       title: createDto.title,
